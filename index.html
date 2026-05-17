@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White Wolf OS - Pro Edition</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        body { height: 100vh; width: 100vw; overflow: hidden; background-color: #1e272e; color: white; transition: background 0.3s; }
+        
+        /* Desktop & Tasks */
+        .desktop { width: 100%; height: calc(100vh - 50px); position: relative; }
+        .desktop-icon { position: absolute; width: 85px; padding: 10px 5px; display: flex; flex-direction: column; align-items: center; border-radius: 5px; cursor: pointer; border: 1px solid transparent; z-index: 10; transition: background 0.2s; }
+        .desktop-icon:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+        .desktop-icon img { width: 50px; height: 50px; object-fit: contain; pointer-events: none; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5)); margin-bottom: 5px; }
+        .desktop-icon span { font-size: 12px; text-align: center; pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.9); margin-top: 5px; display: block; line-height: 1.3; }
+        
+        /* Taskbar */
+        .taskbar { position: absolute; bottom: 0; width: 100%; height: 50px; background: rgba(32, 32, 32, 0.85); backdrop-filter: blur(25px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; z-index: 10000; }
+        .taskbar-center { display: flex; gap: 8px; position: absolute; left: 50%; transform: translateX(-50%); height: 100%; align-items: center;}
+        .taskbar-icon { width: 40px; height: 40px; border-radius: 5px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s; position: relative; }
+        .taskbar-icon img { width: 24px; height: 24px; object-fit: contain; }
+        .taskbar-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .taskbar-icon.active::after { content: ''; position: absolute; bottom: 2px; width: 16px; height: 3px; background: #60cdff; border-radius: 2px; }
+        .taskbar-right { display: flex; align-items: center; padding-right: 15px; height: 100%; margin-left: auto; }
+        .tray-clock { padding: 5px 10px; border-radius: 5px; cursor: pointer; transition: 0.2s; text-align: right;}
+        
+        /* Start Menu */
+        .start-menu { position: absolute; bottom: 65px; left: 50%; transform: translateX(-50%) translateY(20px); width: 450px; height: 500px; background: rgba(36, 36, 36, 0.95); backdrop-filter: blur(30px); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; padding: 25px; opacity: 0; pointer-events: none; transition: all 0.2s; z-index: 9999; }
+        .start-menu.active { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: all; }
+        .pinned-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px;}
+        .file-icon { width: 90px; padding: 10px 5px; display: flex; flex-direction: column; align-items: center; border-radius: 5px; cursor: pointer; }
+        .file-icon:hover { background: rgba(255, 255, 255, 0.1); }
+        .file-icon img { width: 40px; height: 40px; pointer-events: none; }
+
+        /* Windows */
+        .window { position: absolute; top: 10vh; left: 15vw; width: 850px; height: 550px; background: #202020; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 15px 40px rgba(0,0,0,0.6); display: flex; flex-direction: column; overflow: hidden; transform: scale(0.95); opacity: 0; pointer-events: none; transition: transform 0.1s, opacity 0.1s; }
+        .window.open { transform: scale(1); opacity: 1; pointer-events: all; }
+        .window.maximized { top: 0 !important; left: 0 !important; width: 100vw !important; height: calc(100vh - 50px) !important; border-radius: 0; transform: scale(1); }
+        .title-bar { height: 35px; display: flex; justify-content: space-between; align-items: center; padding-left: 15px; font-size: 13px; background: #181818; }
+        .win-controls { display: flex; height: 100%; }
+        .win-btn { width: 45px; height: 100%; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: 0.2s;}
+        .win-btn:hover { background: rgba(255,255,255,0.1); }
+        .win-btn.close:hover { background: #e81123; color: white; }
+
+        /* Explorer */
+        .explorer-topbar { padding: 8px 15px; background: #1f1f1f; display: flex; gap: 15px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .nav-btn { cursor: pointer; padding: 5px 10px; border-radius: 5px; background: rgba(255,255,255,0.05); transition: 0.2s;}
+        .nav-btn:hover { background: rgba(255,255,255,0.1); }
+        .nav-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+        .explorer-body { display: flex; flex: 1; background: #191919; min-height: 0; }
+        .explorer-sidebar { width: 200px; background: rgba(255,255,255,0.02); padding: 15px 10px; border-right: 1px solid rgba(255,255,255,0.05); overflow-y: auto;}
+        .sidebar-item { padding: 8px 10px; border-radius: 5px; font-size: 13px; cursor: pointer; margin-bottom: 2px;}
+        .sidebar-item:hover { background: rgba(255,255,255,0.08); }
+        .explorer-content { flex: 1; padding: 20px; overflow-y: auto; display: flex; align-content: flex-start; gap: 10px; flex-wrap: wrap; background: #1e1e1e;}
+
+        /* Task Manager */
+        .taskmgr-header { display: flex; padding: 10px 20px; background: #252525; font-weight: bold; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .taskmgr-row { display: flex; padding: 8px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; transition: 0.2s; }
+        .taskmgr-row:hover { background: rgba(255,255,255,0.05); }
+        .col-name { flex: 2; } .col-pid { flex: 1; } .col-mem { flex: 1; text-align: right; }
+
+        /* Terminal */
+        .terminal-content { background: #0c0c0c; flex: 1; padding: 15px; font-family: 'Consolas', monospace; color: #cccccc; overflow-y: auto; font-size: 14px;}
+        .term-input { background: transparent; border: none; color: #cccccc; font-family: 'Consolas', monospace; flex: 1; outline: none; margin-left: 8px; font-size: 14px;}
+
+        /* Windows 11 Context Menu Replica */
+        .context-menu { min-width: 240px; background: #f2f2f2; color: #000; border: 1px solid #ccc; box-shadow: 2px 2px 4px rgba(0,0,0,0.2); position: absolute; display: none; z-index: 100000; padding: 4px 0; font-family: 'Segoe UI', sans-serif; border-radius: 4px;}
+        .context-item { padding: 5px 15px 5px 35px; font-size: 12px; cursor: default; position: relative; display: flex; align-items: center; }
+        .context-item:hover { background-color: #d9ebf9; }
+        .context-divider { height: 1px; background: #d9d9d9; margin: 3px 10px; }
+        .submenu { position: absolute; left: 100%; top: -4px; background: #f2f2f2; border: 1px solid #ccc; min-width: 180px; display: none; box-shadow: 2px 2px 4px rgba(0,0,0,0.2); padding: 4px 0; border-radius: 4px;}
+        .context-item:hover > .submenu { display: block; }
+        .context-icon { position: absolute; left: 10px; width: 14px; height: 14px; }
+        .arrow { position: absolute; right: 15px; font-size: 14px; color: #666; }
+        .hotkey { position: absolute; right: 15px; color: #666; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div class="desktop" id="desktop-area">
+        <div class="desktop-icon" id="icon-pc" ondblclick="openApp('explorer')" style="top: 20px; left: 20px;">
+            <img src="icons/pc.png" onerror="this.src=''; this.alt='💻'">
+            <span>This PC</span>
+        </div>
+        <div class="desktop-icon" id="icon-terminal" ondblclick="openApp('terminal')" style="top: 130px; left: 20px;">
+            <img src="icons/terminal.png" onerror="this.src=''; this.alt='⌨️'">
+            <span>Terminal</span>
+        </div>
+        <div class="desktop-icon" id="icon-taskmgr" ondblclick="openApp('taskmgr')" style="top: 240px; left: 20px;">
+            <img src="icons/taskmgr.png" onerror="this.src=''; this.alt='📊'">
+            <span>Task Manager</span>
+        </div>
+    </div>
+
+    <div class="start-menu" id="startMenu">
+        <h3 style="font-weight: 600; margin-bottom: 20px; font-size: 14px;">Pinned Apps</h3>
+        <div class="pinned-grid">
+            <div class="file-icon" onclick="openApp('explorer'); toggleStartMenu();"><img src="icons/explorer.png" onerror="this.src=''; this.alt='📁'"><span style="margin-top:5px;">Explorer</span></div>
+            <div class="file-icon" onclick="openApp('terminal'); toggleStartMenu();"><img src="icons/terminal.png" onerror="this.src=''; this.alt='⌨️'"><span style="margin-top:5px;">Terminal</span></div>
+            <div class="file-icon" onclick="openApp('taskmgr'); toggleStartMenu();"><img src="icons/taskmgr.png" onerror="this.src=''; this.alt='📊'"><span style="margin-top:5px;">Task Mgr</span></div>
+            <div class="file-icon" onclick="openApp('settings'); toggleStartMenu();"><div style="font-size:35px; text-shadow:0 2px 5px rgba(0,0,0,0.5);">⚙️</div><span style="margin-top:5px;">Settings</span></div>
+        </div>
+    </div>
+
+    <div class="taskbar" id="taskbar-area">
+        <div></div>
+        <div class="taskbar-center">
+            <div class="taskbar-icon" id="startBtn" onclick="toggleStartMenu()">
+                <img src="icons/start.png" style="width: 24px;" onerror="this.src=''; this.alt='🪟'">
+            </div>
+            <div class="taskbar-icon" id="task-explorer" onclick="toggleApp('explorer')">
+                <img src="icons/explorer.png" style="width: 24px;" onerror="this.src=''; this.alt='📁'">
+            </div>
+            <div class="taskbar-icon" id="task-terminal" onclick="toggleApp('terminal')">
+                <img src="icons/terminal.png" style="width: 24px;" onerror="this.src=''; this.alt='⌨️'">
+            </div>
+            <div class="taskbar-icon" id="task-taskmgr" onclick="toggleApp('taskmgr')" style="display: none;">
+                <img src="icons/taskmgr.png" style="width: 24px;" onerror="this.src=''; this.alt='📊'">
+            </div>
+            <div class="taskbar-icon" id="task-media" onclick="toggleApp('media')" style="display: none;">
+                <img src="icons/media.png" style="width: 24px;" onerror="this.src=''; this.alt='▶️'">
+            </div>
+            <div class="taskbar-icon" id="task-settings" onclick="toggleApp('settings')" style="display: none; font-size: 20px;">
+                ⚙️
+            </div>
+        </div>
+        <div class="taskbar-right">
+            <div class="tray-clock"><div id="clockTime" style="font-size: 12px; font-weight: 500;"></div></div>
+        </div>
+    </div>
+
+    <div class="window" id="win-explorer">
+        <div class="title-bar" id="drag-explorer" ondblclick="maximizeApp('explorer')">
+            <div>📁 Explorer</div>
+            <div class="win-controls">
+                <div class="win-btn" onclick="minimizeApp('explorer')">─</div>
+                <div class="win-btn" onclick="maximizeApp('explorer')">□</div>
+                <div class="win-btn close" onclick="closeApp('explorer')">✕</div>
+            </div>
+        </div>
+        <div class="explorer-topbar">
+            <div class="nav-btn" id="nav-back" onclick="navBack()">⬅️</div>
+            <div class="nav-btn" id="nav-forward" onclick="navForward()">➡️</div>
+            <div id="explorer-path" style="font-size: 13px; margin-left: 10px; background: rgba(0,0,0,0.3); padding: 5px 15px; border-radius: 5px; flex:1;"></div>
+        </div>
+        <div class="explorer-body">
+            <div class="explorer-sidebar" id="explorer-sidebar">Loading...</div>
+            <div class="explorer-content" id="explorer-files"></div>
+        </div>
+    </div>
+
+    <div class="window" id="win-settings">
+        <div class="title-bar" id="drag-settings" ondblclick="maximizeApp('settings')">
+            <div>⚙️ Settings</div>
+            <div class="win-controls">
+                <div class="win-btn" onclick="minimizeApp('settings')">─</div>
+                <div class="win-btn close" onclick="closeApp('settings')">✕</div>
+            </div>
+        </div>
+        <div style="padding: 20px; background: #1e1e1e; flex: 1; color: white; overflow-y: auto;">
+            
+            <h3 style="color: #60cdff; margin-bottom: 10px;">📊 Memory Management</h3>
+            <div style="background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                    <span>RAM Usage:</span>
+                    <span id="mem-percent">0%</span>
+                </div>
+                <div style="width: 100%; height: 10px; background: #444; border-radius: 5px; overflow: hidden;">
+                    <div id="mem-bar" style="width: 0%; height: 100%; background: #60cdff; transition: 0.5s;"></div>
+                </div>
+                <div style="display: flex; gap: 15px; margin-top: 10px; font-size: 12px; color: #aaa;">
+                    <div>Free: <span id="mem-free">0</span> GB</div>
+                    <div>Used: <span id="mem-used">0</span> GB</div>
+                    <div>Total: <span id="mem-total">0</span> GB</div>
+                </div>
+            </div>
+
+            <h3 style="color: #60cdff; margin-bottom: 10px;">🔌 I/O Devices & System</h3>
+            <div id="io-list" style="background: #252525; padding: 15px; border-radius: 8px; font-size: 13px; line-height: 1.8;">
+                Loading device information...
+            </div>
+
+            <button onclick="openApp('explorer'); closeApp('settings');" style="margin-top:20px; padding: 8px 15px; background: #333; color: white; border: 1px solid #555; cursor: pointer;">Browse for Wallpapers</button>
+        </div>
+    </div>
+
+    <div class="window" id="win-terminal">
+        <div class="title-bar" id="drag-terminal" style="background: #111;" ondblclick="maximizeApp('terminal')">
+            <div>⌨️ Terminal</div>
+            <div class="win-controls"><div class="win-btn" onclick="minimizeApp('terminal')">─</div><div class="win-btn close" onclick="closeApp('terminal')">✕</div></div>
+        </div>
+        <div class="terminal-content" id="term-output" onclick="document.getElementById('cmd-input') && document.getElementById('cmd-input').focus()"></div>
+    </div>
+
+    <div class="window" id="win-taskmgr">
+        <div class="title-bar" id="drag-taskmgr" ondblclick="maximizeApp('taskmgr')">
+            <div>📊 Task Manager</div>
+            <div class="win-controls"><div class="win-btn" onclick="minimizeApp('taskmgr')">─</div><div class="win-btn close" onclick="closeApp('taskmgr')">✕</div></div>
+        </div>
+        <div style="background: #1e1e1e; height: 100%; display: flex; flex-direction: column;">
+            <div style="padding: 15px; display: flex; gap: 20px; background: #252525;">
+                <div>CPU: <span id="tm-cpu" style="color: #60cdff; font-weight: bold;">0%</span></div>
+                <div>RAM: <span id="tm-ram" style="color: #60cdff; font-weight: bold;">0%</span></div>
+            </div>
+            <div class="taskmgr-header">
+                <div class="col-name">Name</div><div class="col-pid">PID</div><div class="col-mem">Memory</div>
+            </div>
+            <div id="taskmgr-list" style="overflow-y: auto; flex: 1;"></div>
+        </div>
+    </div>
+
+    <div class="window" id="win-media" style="background: #000;">
+        <div class="title-bar" id="drag-media" style="background: #111;" ondblclick="maximizeApp('media')">
+            <div id="media-title">▶️ Media Player</div>
+            <div class="win-controls"><div class="win-btn" onclick="minimizeApp('media')">─</div><div class="win-btn close" onclick="closeApp('media')">✕</div></div>
+        </div>
+        <div style="height: calc(100% - 35px); display: flex; justify-content: center; align-items: center; overflow: hidden;" id="media-content"></div>
+    </div>
+
+    <div class="context-menu" id="contextMenu"></div>
+
+    <script>
+        // --- System Clock ---
+        setInterval(() => { 
+            let d = new Date();
+            document.getElementById('clockTime').innerHTML = d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + "<br>" + d.toLocaleDateString();
+        }, 1000);
+
+        // --- Menus Management ---
+        const startMenu = document.getElementById("startMenu");
+        function toggleStartMenu() { startMenu.classList.toggle("active"); }
+        document.addEventListener("click", (e) => {
+            if(!e.target.closest('#startMenu') && !e.target.closest('#startBtn')) startMenu.classList.remove("active");
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+
+        // --- Window & Icon Dragging (Grid Snap) ---
+        let zIndex = 100;
+        const GRID_SIZE_X = 100;
+        const GRID_SIZE_Y = 110;
+        let isGridEnabled = true;
+
+        function snapToGrid(value, gridSize) { return Math.round(value / gridSize) * gridSize; }
+
+        function setupDraggable(element, handle = null) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const dragHandle = handle || element;
+
+            dragHandle.onmousedown = (e) => {
+                if (element.classList.contains('maximized') || e.target.closest('.win-btn')) return;
+                if (e.button !== 0) return;
+                
+                e.preventDefault();
+                element.style.zIndex = ++zIndex;
+                element.style.transition = 'none';
+
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+
+                document.onmousemove = (e) => {
+                    e.preventDefault();
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    element.style.top = (element.offsetTop - pos2) + "px";
+                    element.style.left = (element.offsetLeft - pos1) + "px";
+                };
+
+                document.onmouseup = () => {
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                    
+                    if (!handle && isGridEnabled) { 
+                        element.style.transition = 'all 0.2s'; 
+                        let snappedTop = snapToGrid(element.offsetTop, GRID_SIZE_Y);
+                        let snappedLeft = snapToGrid(element.offsetLeft, GRID_SIZE_X);
+                        element.style.top = (snappedTop > 0 ? snappedTop : 20) + "px";
+                        element.style.left = (snappedLeft > 0 ? snappedLeft : 20) + "px";
+                    } else {
+                        element.style.transition = '';
+                    }
+                };
+            };
+            if (handle) element.onmousedown = () => element.style.zIndex = ++zIndex;
+        }
+
+        setupDraggable(document.getElementById("win-explorer"), document.getElementById("drag-explorer"));
+        setupDraggable(document.getElementById("win-terminal"), document.getElementById("drag-terminal"));
+        setupDraggable(document.getElementById("win-taskmgr"), document.getElementById("drag-taskmgr"));
+        setupDraggable(document.getElementById("win-media"), document.getElementById("drag-media"));
+        setupDraggable(document.getElementById("win-settings"), document.getElementById("drag-settings"));
+
+        const icons = document.querySelectorAll('.desktop-icon');
+        icons.forEach((icon, index) => {
+            icon.style.left = '20px'; icon.style.top = (20 + (index * GRID_SIZE_Y)) + 'px';
+            setupDraggable(icon);
+        });
+
+        // --- Window Management ---
+        function openApp(id) { 
+            let w = document.getElementById('win-'+id); w.classList.add('open'); w.style.zIndex = ++zIndex; 
+            let task = document.getElementById('task-'+id); if(task) { task.style.display = "flex"; task.classList.add('active'); }
+            if (id === 'settings') updateSettingsData();
+            if (id === 'terminal' && document.getElementById('term-output').innerHTML === '') initTerminal();
+            if (id === 'taskmgr') startTaskManager();
+        }
+        function toggleApp(id) { let w = document.getElementById('win-'+id); w.classList.contains('open') ? minimizeApp(id) : openApp(id); }
+        function minimizeApp(id) { document.getElementById('win-'+id).classList.remove('open'); }
+        function maximizeApp(id) { document.getElementById('win-'+id).classList.toggle('maximized'); }
+        function closeApp(id) { 
+            document.getElementById('win-'+id).classList.remove('open', 'maximized'); 
+            let task = document.getElementById('task-'+id); if(task) { task.classList.remove('active'); if(['media','taskmgr','settings'].includes(id)) task.style.display="none"; }
+            if (id === 'media') { document.getElementById('media-content').innerHTML = ''; }
+            if (id === 'taskmgr') stopTaskManager();
+        }
+
+        // --- Settings & I/O Engine ---
+        async function updateSettingsData() {
+            const mem = await pywebview.api.get_memory_details();
+            if(!mem.error) {
+                document.getElementById('mem-percent').innerText = mem.percent + "%";
+                document.getElementById('mem-bar').style.width = mem.percent + "%";
+                document.getElementById('mem-free').innerText = mem.free;
+                document.getElementById('mem-used').innerText = mem.used;
+                document.getElementById('mem-total').innerText = mem.total;
+            }
+            const io = await pywebview.api.get_io_devices();
+            document.getElementById('io-list').innerHTML = `
+                <div><b>Node:</b> ${io.node}</div><div><b>OS:</b> ${io.os}</div>
+                <div><b>CPU:</b> ${io.processor}</div><div><b>Arch:</b> ${io.machine}</div>
+                ${io.battery ? `<div><b>Battery:</b> ${io.battery}</div>` : ''}
+                <div><b>Drives:</b> ${io.disks.join(', ')}</div>
+            `;
+        }
+
+        // --- Terminal Engine ---
+        function initTerminal() {
+            const term = document.getElementById('term-output');
+            term.innerHTML = `<div style="color:#60cdff; margin-bottom:10px;">White Wolf Terminal Ready.</div><div style="display:flex;"><span style="color:#23d18b;">wolf</span>:~$ <input type="text" class="term-input" id="cmd-input" autofocus autocomplete="off"></div>`;
+            bindTerminal();
+        }
+        function bindTerminal() {
+            const input = document.getElementById('cmd-input'); input.focus();
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter' && this.value.trim() !== '') {
+                    let cmd = this.value.trim(); const term = document.getElementById('term-output');
+                    this.parentElement.innerHTML = `<span style="color:#23d18b;">wolf</span>:~$ <span style="margin-left:8px;">${cmd}</span>`;
+                    
+                    pywebview.api.run_cmd(cmd).then(result => {
+                        if (result === "CLEAR_TERMINAL_SIGNAL") { initTerminal(); return; }
+                        term.insertAdjacentHTML('beforeend', `<div style="margin:5px 0 10px 0;">${result.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;')}</div>`);
+                        term.insertAdjacentHTML('beforeend', `<div style="display:flex;"><span style="color:#23d18b;">wolf</span>:~$ <input type="text" class="term-input" id="cmd-input" autofocus autocomplete="off"></div>`);
+                        bindTerminal(); term.scrollTop = term.scrollHeight;
+                    });
+                }
+            });
+        }
+
+        // --- Task Manager Engine ---
+        let tmInterval;
+        function startTaskManager() { updateTM(); tmInterval = setInterval(updateTM, 2000); }
+        function stopTaskManager() { clearInterval(tmInterval); }
+        function updateTM() {
+            pywebview.api.get_processes().then(data => {
+                if(data.error) return;
+                document.getElementById('tm-cpu').innerText = data.sys.cpu + '%';
+                document.getElementById('tm-ram').innerText = data.sys.ram + '%';
+                let list = document.getElementById('taskmgr-list'); list.innerHTML = '';
+                data.procs.forEach(p => {
+                    list.innerHTML += `<div class="taskmgr-row"><div class="col-name">${p.name}</div><div class="col-pid">${p.pid}</div><div class="col-mem">${p.mem}%</div></div>`;
+                });
+            });
+        }
+
+        // --- Explorer Engine ---
+        let currentPath = "";
+        let pathHistory = [];
+        let historyIndex = -1;
+        let clipboard = { path: null, action: null };
+        let ctxTarget = { path: null, isDir: false, name: '', isImage: false };
+        const contextMenu = document.getElementById('contextMenu');
+
+        window.addEventListener('pywebviewready', function() {
+            // تحميل الخلفية بذكاء لعدم إبطاء البرنامج
+            setTimeout(() => { document.body.style.backgroundImage = "url('https://images.unsplash.com/photo-1618553655160-b6f72c6bc9c5?q=80&w=2564')"; }, 500);
+
+            pywebview.api.get_drives().then(drives => {
+                let sidebar = document.getElementById('explorer-sidebar');
+                sidebar.innerHTML = '<div class="sidebar-item" style="font-weight:600; margin-bottom:10px;">💻 This PC</div>';
+                drives.forEach(d => {
+                    let btn = document.createElement('div'); btn.className = 'sidebar-item'; btn.innerHTML = `💾 Disk (${d})`;
+                    btn.onclick = () => { loadPath(d.includes(':') ? d + "\\" : d); };
+                    sidebar.appendChild(btn);
+                });
+                if(drives.length > 0) loadPath(drives[0].includes(':') ? drives[0] + "\\" : drives[0]);
+            });
+        });
+
+        async function loadPath(path, isHistoryNav = false) {
+            try {
+                let normalizedPath = path.replace(/\\/g, "/");
+                currentPath = normalizedPath;
+                
+                let pathDisplay = document.getElementById('explorer-path');
+                if(pathDisplay) pathDisplay.innerText = normalizedPath;
+                
+                if (!isHistoryNav) {
+                    pathHistory = pathHistory.slice(0, historyIndex + 1);
+                    pathHistory.push(normalizedPath);
+                    historyIndex++;
+                }
+                updateNavButtons();
+
+                const res = await pywebview.api.get_files(normalizedPath);
+                let content = document.getElementById('explorer-files'); 
+                content.innerHTML = '';
+                
+                if (res.error) { content.innerHTML = `<div style="color:#ff5f56; padding:20px;">⚠️ Error: ${res.error}</div>`; return; }
+
+                res.forEach(item => {
+                    let ext = item.name.toLowerCase().split('.').pop();
+                    let isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+                    
+                    let iconSrc = item.is_dir ? 'icons/folder.png' : 'icons/file.png';
+                    if(['mp4','webm','avi','mkv'].includes(ext)) iconSrc = 'icons/video.png';
+                    if(isImage) iconSrc = 'icons/image.png';
+                    if(['mp3','wav','ogg'].includes(ext)) iconSrc = 'icons/media.png'; 
+
+                    let div = document.createElement('div'); div.className = 'file-icon';
+                    div.innerHTML = `<img src="${iconSrc}" style="width:48px; height:48px; margin-bottom:5px; pointer-events:none;" onerror="this.src=''; this.alt='📄'"><span style="pointer-events:none; margin-top:5px; display:block; text-align:center; line-height: 1.2;">${item.name}</span>`;
+
+                    div.ondblclick = (e) => { e.stopPropagation(); openFileOrMedia(item.path, item.is_dir); };
+                    div.oncontextmenu = (e) => {
+                        e.stopPropagation(); e.preventDefault();
+                        ctxTarget = { path: item.path, isDir: item.is_dir, name: item.name, isImage: isImage };
+                        showContextMenu(e.clientX, e.clientY, 'file');
+                    };
+                    content.appendChild(div);
+                });
+            } catch(err) { alert("Error: " + err.message); }
+        }
+
+        function navBack() { if(historyIndex > 0) { historyIndex--; loadPath(pathHistory[historyIndex], true); } }
+        function navForward() { if(historyIndex < pathHistory.length - 1) { historyIndex++; loadPath(pathHistory[historyIndex], true); } }
+        function updateNavButtons() {
+            document.getElementById('nav-back').className = historyIndex > 0 ? 'nav-btn' : 'nav-btn disabled';
+            document.getElementById('nav-forward').className = historyIndex < pathHistory.length - 1 ? 'nav-btn' : 'nav-btn disabled';
+        }
+
+        // --- FAST INTERNAL MEDIA STREAMING ---
+        function openFileOrMedia(path, isDir) {
+            if(isDir) { loadPath(path); return; }
+            let ext = path.toLowerCase().split('.').pop();
+            let isVideo = ['mp4', 'webm', 'ogg', 'avi', 'mkv'].includes(ext);
+            let isAudio = ['mp3', 'wav', 'ogg', 'm4a'].includes(ext);
+            let isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+            
+            if(isImage || isVideo || isAudio) {
+                let content = document.getElementById('media-content');
+                document.getElementById('media-title').innerText = "▶️ " + path.split(/[\\/]/).pop();
+                openApp('media');
+
+                // هنا السر: استخدام سيرفر البايثون الداخلي لفتح الملفات بسرعة البرق
+                let mediaUrl = "http://127.0.0.1:54321/" + encodeURIComponent(path.replace(/\\/g, '/'));
+
+                if (isImage) {
+                    content.innerHTML = `<img src="${mediaUrl}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
+                } else if (isVideo) {
+                    content.innerHTML = `<video src="${mediaUrl}" controls autoplay style="width:100%; height:100%; outline:none; background:black;"></video>`;
+                } else if (isAudio) {
+                    content.innerHTML = `<div style="text-align:center;"><img src="icons/media.png" style="width:80px; margin-bottom:20px;" onerror="this.src='';"><br><audio src="${mediaUrl}" controls autoplay style="outline:none; width:350px;"></audio></div>`;
+                }
+            } else { 
+                pywebview.api.open_real_file(path); 
+            }
+        }
+
+        // --- Context Menu Engine ---
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if(e.target.closest('#taskbar-area')) showContextMenu(e.clientX, e.clientY, 'taskbar');
+            else if(e.target.id === 'desktop-area') showContextMenu(e.clientX, e.clientY, 'desktop');
+            else if(e.target.id === 'explorer-files') showContextMenu(e.clientX, e.clientY, 'folder_bg');
+        });
+
+        function showContextMenu(x, y, type) {
+            let html = '';
+            
+            if(type === 'desktop' || type === 'folder_bg') {
+                let pasteStyle = clipboard.path ? 'color: #000;' : 'color: #999;';
+                let pasteAction = clipboard.path ? `onclick="execAction('paste')"` : '';
+                html = `
+                    <div class="context-item">View <span class="arrow">›</span>
+                        <div class="submenu">
+                            <div class="context-item" onclick="alert('Large icons')">Large icons</div>
+                            <div class="context-item" onclick="alert('Medium icons')">Medium icons</div>
+                            <div class="context-item" onclick="alert('Small icons')">Small icons</div>
+                            <div class="context-divider"></div>
+                            <div class="context-item" onclick="toggleGrid()">${isGridEnabled ? '<span style="position:absolute; left:10px;">✓</span>' : ''} Auto arrange icons</div>
+                            <div class="context-item" onclick="toggleGrid()">${isGridEnabled ? '<span style="position:absolute; left:10px;">✓</span>' : ''} Align icons to grid</div>
+                        </div>
+                    </div>
+                    <div class="context-item">Sort by <span class="arrow">›</span>
+                        <div class="submenu">
+                            <div class="context-item" onclick="alert('Name')">Name</div>
+                            <div class="context-item" onclick="alert('Size')">Size</div>
+                            <div class="context-item" onclick="alert('Item type')">Item type</div>
+                            <div class="context-item" onclick="alert('Date modified')">Date modified</div>
+                        </div>
+                    </div>
+                    <div class="context-item" onclick="loadPath(currentPath)">Refresh</div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" style="${pasteStyle}" ${pasteAction}>Paste</div>
+                    <div class="context-item" style="color: #999;">Paste shortcut</div>
+                    <div class="context-item" style="color: #000;" onclick="alert('No actions to undo')">Undo Move <span class="hotkey">Ctrl+Z</span></div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="alert('NVIDIA Panel Opened')">
+                        <svg class="context-icon" viewBox="0 0 24 24"><path fill="#76b900" d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm6.75 14.5c0 1.25-1.5 2.5-4.5 2.5s-4.5-1.25-4.5-2.5 1.5-2.5 4.5-2.5 4.5 1.25 4.5 2.5z"/></svg>
+                        NVIDIA Control Panel
+                    </div>
+                    <div class="context-divider"></div>
+                    <div class="context-item">New <span class="arrow">›</span>
+                        <div class="submenu">
+                            <div class="context-item" onclick="execAction('new_folder')"><span style="position:absolute; left:10px;">📁</span> Folder</div>
+                            <div class="context-item" onclick="execAction('new_file')"><span style="position:absolute; left:10px;">📄</span> Text Document</div>
+                        </div>
+                    </div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="alert('Display settings')">
+                        <svg class="context-icon" viewBox="0 0 16 16"><path fill="#0078D7" d="M1 3h14v8H1V3zm0-1a1 1 0 00-1 1v8a1 1 0 001 1h4v2H3v1h10v-1h-2v-2h4a1 1 0 001-1V3a1 1 0 00-1-1H1z"/></svg> 
+                        Display settings
+                    </div>
+                    <div class="context-item" onclick="openApp('settings')">
+                        <svg class="context-icon" viewBox="0 0 16 16"><path fill="#0078D7" d="M12.854 1.146a.5.5 0 00-.708 0L3.5 9.793 2.146 13.5a.5.5 0 00.647.646l3.707-1.354 8.646-8.646a.5.5 0 000-.708l-2.292-2.292z"/></svg> 
+                        Personalize
+                    </div>
+                `;
+            } else if (type === 'file') {
+                html = `
+                    <div class="context-item" onclick="openFileOrMedia(ctxTarget.path, ctxTarget.isDir)"><span style="position:absolute; left:10px;">📂</span> Open</div>
+                    ${ctxTarget.isImage ? `<div class="context-item" onclick="setWallpaper('${ctxTarget.path.replace(/\\/g, '/')}')"><span style="position:absolute; left:10px;">🖼️</span> Set as desktop background</div>` : ''}
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="execAction('cut')"><span style="position:absolute; left:10px;">✂️</span> Cut</div>
+                    <div class="context-item" onclick="execAction('copy')"><span style="position:absolute; left:10px;">📋</span> Copy</div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="execAction('rename')"><span style="position:absolute; left:10px;">✏️</span> Rename</div>
+                    <div class="context-item" onclick="execAction('delete')" style="color:#ff5f56;"><span style="position:absolute; left:10px;">🗑️</span> Delete</div>
+                `;
+            } else if (type === 'taskbar') {
+                html = `
+                    <div class="context-item" onclick="alert('Taskbar locked')"><span style="position:absolute; left:10px;">✓</span> Lock all taskbars</div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="alert('Minimize all windows')">Show the desktop</div>
+                    <div class="context-item" onclick="openApp('taskmgr')">Task Manager</div>
+                    <div class="context-divider"></div>
+                    <div class="context-item" onclick="alert('Taskbar Settings Opened')">Taskbar settings</div>
+                `;
+            }
+
+            contextMenu.innerHTML = html; contextMenu.style.display = 'block';
+            
+            let mw = contextMenu.offsetWidth || 240; let mh = contextMenu.offsetHeight || 300;
+            let leftPos = x + mw > window.innerWidth ? x - mw : x;
+            let topPos = type === 'taskbar' ? y - mh : (y + mh > window.innerHeight ? window.innerHeight - mh : y);
+            
+            contextMenu.style.left = leftPos + 'px';
+            contextMenu.style.top = topPos + 'px';
+        }
+
+        // --- Settings & Personalization ---
+        function toggleGrid() { isGridEnabled = !isGridEnabled; contextMenu.style.display = 'none'; }
+        
+        function setWallpaper(path) {
+            contextMenu.style.display = 'none';
+            // الاعتماد على السيرفر الداخلي لتعيين الخلفية فوراً
+            let mediaUrl = "http://127.0.0.1:54321/" + encodeURIComponent(path.replace(/\\/g, '/'));
+            document.body.style.backgroundImage = `url('${mediaUrl}')`;
+            document.body.style.backgroundSize = "cover";
+            document.body.style.backgroundPosition = "center";
+        }
+
+        // --- File Operations Engine ---
+        async function execAction(action) {
+            contextMenu.style.display = 'none';
+            
+            if ((action === 'new_folder' || action === 'new_file') && !document.getElementById('win-explorer').classList.contains('open')) {
+                alert("يرجى فتح 📁 Explorer أولاً لتحديد مسار إنشاء الملف أو المجلد بشكل صحيح.");
+                return;
+            }
+
+            if (action === 'new_folder' || action === 'new_file') {
+                let name = prompt(`Enter name:`, action === 'new_folder' ? "New Folder" : "New Text Document.txt");
+                if (name) {
+                    const res = await pywebview.api.create_item(currentPath, name, action === 'new_folder');
+                    if (res === "success") loadPath(currentPath); else alert("Error: " + res);
+                }
+            }
+            else if (action === 'delete') {
+                if (confirm(`Delete ${ctxTarget.name}?`)) {
+                    const res = await pywebview.api.delete_item(ctxTarget.path);
+                    if (res === "success") loadPath(currentPath); else alert(res);
+                }
+            }
+            else if (action === 'rename') {
+                let newName = prompt("Rename to:", ctxTarget.name);
+                if (newName) {
+                    const res = await pywebview.api.rename_item(ctxTarget.path, newName);
+                    if (res === "success") loadPath(currentPath); else alert(res);
+                }
+            }
+            else if (action === 'cut' || action === 'copy') { clipboard = { path: ctxTarget.path, action: action }; }
+            else if (action === 'paste' && clipboard.path) {
+                const res = await pywebview.api.paste_item(clipboard.path, currentPath, clipboard.action);
+                if (res === 'success') { if (clipboard.action === 'cut') clipboard.path = null; loadPath(currentPath); }
+                else alert(res);
+            }
+        }
+    </script>
+</body>
+</html>
